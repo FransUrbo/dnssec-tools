@@ -1,21 +1,13 @@
-#!/bin/sh -e
+#!/bin/sh
 
-# $Id: dnssec-sign.sh,v 1.4 2003-03-28 11:44:07 turbo Exp $
+# $Id: dnssec-sign.sh,v 1.5 2003-03-28 11:56:56 turbo Exp $
 
-# --------------
-# Set some default variables
-DIR_BIND=/etc/bind			# Where is the zones files (db.*) that Bind9 loads (ie, the signed zone files)?
-					#  - Original zone files are in $DIR_BIND/.original
-DIR_KEYS=/var/cache/bind		# Keyfiles must be in 'directory' clause of named.conf!
-
-CURRENTDATE=`date +"%Y%m%d%H%M%S"`	# Current day and time (YYYYMMDDHHMMSS) -> 20030218160510
-
-KEY_TTL=86400				# Key TTL in seconds (86400 -> 24 hours)
-KEY_ALG=RSA				# Key algorithm: RSA | RSAMD5 | DH | DSA | HMAC-MD5
-KEY_LEN=2048				# Key size, in bits:	RSA:		[512..4096]
-					#			DH:		[128..4096]
-					#			DSA:		[512..1024] and divisible by 64
-					#			HMAC-MD5:	[1..512]
+if [ -f /etc/dnssec-tools.conf ]; then
+    . /etc/dnssec-tools.conf
+else
+    echo "No config file found"
+    exit 1
+fi
 
 # --------------
 # Get the old "K$zone.+[0-9]*[0-9].key" file
@@ -180,6 +172,8 @@ ZONES=$ZONE
 # --------------
 # Go through the zones files, creating new and signing those
 if [ ! -z "$ZONES" ]; then
+    [ ! -z "$verbose" ] && echo "Zones to (re-)sign: $ZONES"
+
     for zone in $ZONES; do
 	[ ! -z "$verbose" ] && echo "  Zone: $zone"
 	temp_dir
