@@ -1,6 +1,6 @@
 #!/bin/sh -e
 
-# $Id: dnssec-sign.sh,v 1.2 2003-03-28 10:27:23 turbo Exp $
+# $Id: dnssec-sign.sh,v 1.3 2003-03-28 11:42:45 turbo Exp $
 
 # --------------
 # Set some default variables
@@ -116,9 +116,10 @@ sign_zone () {
 # Show help message and quit
 help () {
     echo "Usage:   `basename $0` [option] zone"
-    echo "Options: -h,--help     Show this help"
-    echo "         -v,--verbose  Be verbose about what's going on"
-    echo "         -r,--resign   Re-sign zone file"
+    echo "Options: -h,--help       Show this help"
+    echo "         -v,--verbose    Be verbose about what's going on"
+    echo "         -r,--resign     Re-sign zone file"
+    echo "         -a,--all-zones  Sign all zones found"
     echo
     exit 0
 }
@@ -137,7 +138,7 @@ temp_dir () {
 if [ "$#" -lt 1 ]; then
     help
 else
-    TEMP=`getopt -o hrv --long help,resign,verbose -- "$@"`
+    TEMP=`getopt -o hrva --long help,resign,verbose,all-zones -- "$@"`
     eval set -- "$TEMP"
     while true ; do
 	case "$1" in
@@ -148,6 +149,8 @@ else
 		resign=1 ; shift ;;
 	    -v|--verbose)
 		verbose=1 ; shift ;;
+	    -a|--all-zones)
+		allzones=1 ; shift ;;
 	    --)
 		shift ; ZONES="$*" ; break ;;
 	    *)
@@ -158,8 +161,16 @@ fi
 
 # --------------
 # Check if (ANY of) the zone file(s) exists
+if [ ! -z "$allzones" ]; then
+    for zone in `find $DIR_BIND/.original/* | egrep -v 'root|localhost|new$|in-addr.arpa'`; do
+	zone=`echo $zone | sed "s@$DIR_BIND/.original/db.@@"`
+	ZONES="$ZONES $zone"
+    done
+fi
+
+ZONE=
 for zone in $ZONES; do
-    if [ -f "db.$zone" ]; then
+    if [ -f "$DIR_BIND/.original/db.$zone" ]; then
 	ZONE="$ZONE$zone"
     fi
     [ ! -z "$ZONE" ] && ZONE="$ZONE "
