@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# $Id: dnssec-create_keys.sh,v 1.3 2003-03-28 12:43:50 turbo Exp $
+# $Id: dnssec-create_keys.sh,v 1.4 2003-03-28 12:48:02 turbo Exp $
 
 # --------------
 # Set some default variables
@@ -57,7 +57,7 @@ rm $TMPFILE
 // Setup DNSSEC keys etc
 trusted-keys {
 EOF
-for key in $DIR_KEYS/HostKeys/K*.key; do
+for key in $DIR_KEYS/K*.key; do
     cat $key | perl -n -e '
 local ($dn, $class, $type, $flags, $proto, $alg, @rest) = split;
 local $key = join("", @rest);
