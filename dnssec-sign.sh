@@ -1,6 +1,6 @@
 #!/bin/sh -e
 
-# $Id: dnssec-sign.sh,v 1.3 2003-03-28 11:42:45 turbo Exp $
+# $Id: dnssec-sign.sh,v 1.4 2003-03-28 11:44:07 turbo Exp $
 
 # --------------
 # Set some default variables
@@ -181,7 +181,7 @@ ZONES=$ZONE
 # Go through the zones files, creating new and signing those
 if [ ! -z "$ZONES" ]; then
     for zone in $ZONES; do
-	echo "  Zone: $zone"
+	[ ! -z "$verbose" ] && echo "  Zone: $zone"
 	temp_dir
 	create_key $zone
 	sign_zone $zone db.$zone
