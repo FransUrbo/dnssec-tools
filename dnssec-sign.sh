@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# $Id: dnssec-sign.sh,v 1.5 2003-03-28 11:56:56 turbo Exp $
+# $Id: dnssec-sign.sh,v 1.6 2003-03-28 12:57:35 turbo Exp $
 
 if [ -f /etc/dnssec-tools.conf ]; then
     . /etc/dnssec-tools.conf
@@ -105,6 +105,29 @@ sign_zone () {
 }
 
 # --------------
+# Setup DNSSEC keys etc
+dnssec_keys () {
+    (cat <<EOF
+// Setup DNSSEC keys etc
+trusted-keys {
+EOF
+	for key in $DIR_KEYS/K*.key; do
+	    cat $key | perl -n -e '
+local ($dn, $class, $type, $flags, $proto, $alg, @rest) = split;
+local $key = join("", @rest);
+if($alg ne "157") {
+    print "\t\"$dn\" $flags $proto $alg \"$key\";\n";
+}
+'
+	done
+	cat <<EOF
+};
+EOF
+    ) > $TMPFILE
+    mv $TMPFILE $DIR_BIND/named.conf.trusted-keys
+}
+
+# --------------
 # Show help message and quit
 help () {
     echo "Usage:   `basename $0` [option] zone"
@@ -184,6 +207,10 @@ else
     echo "No zonefiles!"
     exit 1
 fi
+
+# --------------
+# Update the named.conf.trusted-keys file
+dnssec_keys
 
 # --------------
 echo "Signed files:"
