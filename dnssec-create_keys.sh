@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# $Id: dnssec-create_keys.sh,v 1.1 2003-03-28 11:14:32 turbo Exp $
+
 # Where is the zones files (db.*)?
 DIR_BIND=/etc/bind
 
@@ -8,7 +10,11 @@ DIR_KEYS=/var/cache/bind
 
 # What zones whould we create keys for?
 if [ -z "$1" ]; then
-    ZONES="localhost 127.in-addr.arpa 0.in-addr.arpa 255.in-addr.arpa bayour.com fjortis.com winas.com thegamestudio.com thegamestudio.se machineworx.com machineworx.org agby.net data-akut.se intelligence-5.se sundqvist.dj fredriksson.dj"
+    ZONES=""
+    for zone in `find $DIR_BIND/.original/* | egrep -v 'root|localhost|new$|in-addr.arpa'`; do
+	zone=`echo $zone | sed "s@$DIR_BIND/.original/db.@@"`
+	ZONES="$ZONES $zone"
+    done
 else
     ZONES="$*"
 fi
