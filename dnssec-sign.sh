@@ -1,30 +1,29 @@
 #!/bin/sh -e
 
+# $Id: dnssec-sign.sh,v 1.2 2003-03-28 10:27:23 turbo Exp $
+
 # --------------
 # Set some default variables
-DIR_BIND=/etc/bind			# Where is the zones files (db.*)?
+DIR_BIND=/etc/bind			# Where is the zones files (db.*) that Bind9 loads (ie, the signed zone files)?
+					#  - Original zone files are in $DIR_BIND/.original
 DIR_KEYS=/var/cache/bind		# Keyfiles must be in 'directory' clause of named.conf!
+
 CURRENTDATE=`date +"%Y%m%d%H%M%S"`	# Current day and time (YYYYMMDDHHMMSS) -> 20030218160510
-CURRENTWORKDIR=`pwd`
 
 KEY_TTL=86400				# Key TTL in seconds (86400 -> 24 hours)
 KEY_ALG=RSA				# Key algorithm: RSA | RSAMD5 | DH | DSA | HMAC-MD5
-KEY_LEN=1024				# Key size, in bits:	RSA:		[512..4096]
+KEY_LEN=2048				# Key size, in bits:	RSA:		[512..4096]
 					#			DH:		[128..4096]
 					#			DSA:		[512..1024] and divisible by 64
 					#			HMAC-MD5:	[1..512]
-
-
-# DEBUG
-# DIR_KEYS=$CURRENTWORKDIR/cache
 
 # --------------
 # Get the old "K$zone.+[0-9]*[0-9].key" file
 get_old_key () {
     local zone="$1"
 
-    [ ! -z "$verbose" ] && echo -n "Getting OLD key: "
-    OLDKEY="`(cd $DIR_KEYS && find -name "K$zone.+[0-9]*[0-9].key" -maxdepth 1 | sed 's@^\./@@')`"
+    [ ! -z "$verbose" ] && echo -n "    Getting OLD key: "
+    OLDKEY="`(cd $DIR_KEYS && find -name "K$zone.+[0-9]*[0-9].key" -maxdepth 1 -exec ls -ltr {} \; | tail -n1 | sed -e 's@.*\./@@')`"
     [ ! -z "$OLDKEY" ] && OLDKEY="$DIR_KEYS/$OLDKEY"
 
     if [ ! -z "$verbose" ]; then
@@ -44,24 +43,24 @@ create_key () {
     local zone="$1"
 
     # Generate private/public key
-    [ ! -z "$verbose" ] && echo -n "Generating key ($KEY_ALG/$KEY_LEN): "
+    [ ! -z "$verbose" ] && echo -n "    Generating key ($KEY_ALG/$KEY_LEN): "
     KEY_ZONE=`dnssec-keygen -a $KEY_ALG -b $KEY_LEN -n ZONE $zone.`
-    [ ! -z "$verbose" ] && echo "done."
+    [ ! -z "$verbose" ] && echo "$PWD/$KEY_ZONE"
 
     # Should we include the old key?
     [ ! -z "$resign" ] && get_old_key $zone
 
     # Generate keyset (possibly with the old key)
     [ ! -z "$OLDKEY" ] && echo_line=" (w/ old key)"
-    [ ! -z "$verbose" ] && echo -n "Generating keyset$echo_line: "
+    [ ! -z "$verbose" ] && echo -n "    Generating keyset$echo_line: "
     KEY_SET=`dnssec-makekeyset -t $KEY_TTL -s +1 -e +2592000 $OLDKEY $KEY_ZONE.key`
-    [ ! -z "$verbose" ] && echo "done."
+    [ ! -z "$verbose" ] && echo "$PWD/$KEY_SET"
 
     # Sign the keyset
     [ ! -z "$OLDKEY" ] && echo_line=" (inc old key)"
-    [ ! -z "$verbose" ] && echo -n "Signing zone key$echo_line: "
+    [ ! -z "$verbose" ] && echo -n "    Signing zone key$echo_line: "
     KEY_SIGNED=`dnssec-signkey $KEY_SET $KEY_ZONE.private`
-    [ ! -z "$verbose" ] && echo "done."
+    [ ! -z "$verbose" ] && echo "$PWD/$KEY_SIGNED"
 
     if [ ! -z "$resign" -a ! -z "$OLDKEY" ]; then
 	# Replace the old keyset
@@ -78,29 +77,37 @@ sign_zone () {
     local zone="$1"
     local file="$2"
 
+    # We MUST be in the directory of the K*.{private,key} files!
     cd $DIR_KEYS
 
-    # A temp file for temporary storage
+    # A temporary zone file containing the zone key etc
     TMPFILE=`tempfile`
 
-    # Include the key file(s) into the zone file
-    [ ! -z "$verbose" ] && echo -n "Setting up zone file: "
-    (cat $CURRENTWORKDIR/$file ; echo "\$INCLUDE $KEY_ZONE.key") > $TMPFILE
-    [ ! -z "$OLDKEY" ] && (cat $CURRENTWORKDIR/$file ; echo "\$INCLUDE $OLDKEY") >> $TMPFILE
-    [ ! -z "$verbose" ] && echo "done."
+    # Include the NEW key file into the zone file
+    [ ! -z "$verbose" ] && echo -n "    Setting up zone file: "
+    (cat $DIR_BIND/.original/$file ; echo "\$INCLUDE $KEY_ZONE.key") > $TMPFILE
+    # Possibly include the OLD key file into the zone file
+    [ ! -z "$OLDKEY" ] && (cat $DIR_BIND/.original/$file ; echo "\$INCLUDE $OLDKEY") >> $TMPFILE
+    [ ! -z "$verbose" ] && echo "$TMPFILE"
 
     # Sign the zone file
-    [ ! -z "$verbose" ] && echo -n "Signing zone file: "
+    [ ! -z "$verbose" ] && echo -n "    Signing zone file: "
     SIGNED=`dnssec-signzone -a -d . -o $zone. $TMPFILE $KEY_ZONE.private 2> /dev/null`
-    [ ! -z "$verbose" ] && echo "done."
+    SIGNED_NEW="$DIR_BIND/db.$zone.signed.new"
+    [ ! -z "$verbose" ] && echo "$SIGNED"
 
     # Move the signed zone file to the current directory
-    mv $SIGNED $CURRENTWORKDIR/$file.signed
+    [ ! -z "$verbose" ] && echo -n "    Moving temp zone file: $SIGNED -> "
+    mv $SIGNED $SIGNED_NEW
+    chown nobody.nogroup $SIGNED_NEW
+    chmod 660 $SIGNED_NEW
     # ...  remember it for later
-    SIGNED_FILES="$SIGNED_FILES $CURRENTWORKDIR/$file.signed"
+    SIGNED_FILES="$SIGNED_FILES $SIGNED_NEW"
     # .. and remove the temp file
     rm $TMPFILE
+    [ ! -z "$verbose" ] && echo "[1m$SIGNED_NEW[0m"
 
+    # Move the OLD keyfile out of the way
     OLDFILES=`echo $OLDKEY | sed 's@\.key@\*@'`
     [ ! -z "$OLDFILES" ] && mv $OLDFILES $DIR_KEYS/old
 }
@@ -162,9 +169,9 @@ ZONES=$ZONE
 # --------------
 # Go through the zones files, creating new and signing those
 if [ ! -z "$ZONES" ]; then
-    temp_dir
-    
     for zone in $ZONES; do
+	echo "  Zone: $zone"
+	temp_dir
 	create_key $zone
 	sign_zone $zone db.$zone
     done
