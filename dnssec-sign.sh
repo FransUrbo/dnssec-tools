@@ -9,7 +9,7 @@ CURRENTWORKDIR=`pwd`
 
 KEY_TTL=86400				# Key TTL in seconds (86400 -> 24 hours)
 KEY_ALG=RSA				# Key algorithm: RSA | RSAMD5 | DH | DSA | HMAC-MD5
-KEY_LEN=4096				# Key size, in bits:	RSA:		[512..4096]
+KEY_LEN=1024				# Key size, in bits:	RSA:		[512..4096]
 					#			DH:		[128..4096]
 					#			DSA:		[512..1024] and divisible by 64
 					#			HMAC-MD5:	[1..512]
@@ -44,7 +44,7 @@ create_key () {
     local zone="$1"
 
     # Generate private/public key
-    [ ! -z "$verbose" ] && echo -n "Generating key: "
+    [ ! -z "$verbose" ] && echo -n "Generating key ($KEY_ALG/$KEY_LEN): "
     KEY_ZONE=`dnssec-keygen -a $KEY_ALG -b $KEY_LEN -n ZONE $zone.`
     [ ! -z "$verbose" ] && echo "done."
 
