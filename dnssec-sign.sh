@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# $Id: dnssec-sign.sh,v 1.6 2003-03-28 12:57:35 turbo Exp $
+# $Id: dnssec-sign.sh,v 1.7 2003-04-03 09:28:58 turbo Exp $
 
 if [ -f /etc/dnssec-tools.conf ]; then
     . /etc/dnssec-tools.conf
@@ -36,7 +36,7 @@ create_key () {
 
     # Generate private/public key
     [ ! -z "$verbose" ] && echo -n "    Generating key ($KEY_ALG/$KEY_LEN): "
-    KEY_ZONE=`dnssec-keygen -a $KEY_ALG -b $KEY_LEN -n ZONE $zone.`
+    KEY_ZONE=`dnssec-keygen -a $KEY_ALG -b $KEY_LEN -n ZONE -r $RANDDEV $zone.`
     [ ! -z "$verbose" ] && echo "$PWD/$KEY_ZONE"
 
     # Should we include the old key?
